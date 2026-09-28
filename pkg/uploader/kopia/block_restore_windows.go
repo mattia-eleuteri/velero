@@ -30,6 +30,9 @@ import (
 type BlockOutput struct {
 	*restore.FilesystemOutput
 
+	// Parallelism is unused on Windows, where block restore is not supported.
+	Parallelism int
+
 	targetFileName string
 }
 
