@@ -1,0 +1,1 @@
+Restore block mode volumes with parallel readers in the kopia uploader to speed up restores from object storage

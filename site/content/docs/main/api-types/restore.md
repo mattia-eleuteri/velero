@@ -45,7 +45,9 @@ spec:
   uploaderConfig:
     # WriteSparseFiles is a flag to indicate whether write files sparsely or not
     writeSparseFiles: true
-    # ParallelFilesDownload is the concurrency number setting for restore
+    # ParallelFilesDownload is the concurrency number setting for restore.
+    # For block mode volumes restored by the kopia uploader, it is also the number of
+    # parallel readers used for the volume, capped at 16. Defaults to the number of CPUs.
     parallelFilesDownload: 10
   # Array of namespaces to include in the restore. Accepts glob patterns (*, ?, [abc]).
   # If unspecified, all namespaces are included. Optional.
