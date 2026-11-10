@@ -37,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	velerov1api "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -68,6 +69,7 @@ type BackupRepoReconciler struct {
 	logLevel              logrus.Level
 	logFormat             *logging.FormatFlag
 	metrics               *metrics.ServerMetrics
+	concurrentRepos       int
 }
 
 func NewBackupRepoReconciler(
@@ -94,9 +96,20 @@ func NewBackupRepoReconciler(
 		logLevel,
 		logFormat,
 		metrics,
+		1,
 	}
 
 	return c
+}
+
+// WithConcurrency sets how many BackupRepositories are reconciled in parallel.
+// Reconciles of the same repository are never concurrent, and the repository
+// manager locks per repository.
+func (r *BackupRepoReconciler) WithConcurrency(n int) *BackupRepoReconciler {
+	if n > 0 {
+		r.concurrentRepos = n
+	}
+	return r
 }
 
 func (r *BackupRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -133,6 +146,9 @@ func (r *BackupRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				),
 			),
 		).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: r.concurrentRepos,
+		}).
 		Complete(r)
 }
 

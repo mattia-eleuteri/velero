@@ -46,8 +46,9 @@ const (
 	defaultMaxConcurrentK8SConnections = 30
 	defaultDisableInformerCache        = false
 
-	DefaultItemBlockWorkerCount = 1
-	DefaultConcurrentBackups    = 1
+	DefaultItemBlockWorkerCount  = 1
+	DefaultConcurrentBackups     = 1
+	DefaultConcurrentBackupRepos = 1
 )
 
 var (
@@ -181,6 +182,7 @@ type Config struct {
 	RepoMaintenanceJobConfig       string
 	ItemBlockWorkerCount           int
 	ConcurrentBackups              int
+	ConcurrentBackupRepos          int
 }
 
 func GetDefaultConfig() *Config {
@@ -214,6 +216,7 @@ func GetDefaultConfig() *Config {
 		CredentialsDirectory:           credentials.DefaultStoreDirectory(),
 		ItemBlockWorkerCount:           DefaultItemBlockWorkerCount,
 		ConcurrentBackups:              DefaultConcurrentBackups,
+		ConcurrentBackupRepos:          DefaultConcurrentBackupRepos,
 	}
 
 	return config
@@ -274,5 +277,11 @@ func (c *Config) BindFlags(flags *pflag.FlagSet) {
 		"concurrent-backups",
 		c.ConcurrentBackups,
 		"Number of backups to process concurrently. Default is one. Optional.",
+	)
+	flags.IntVar(
+		&c.ConcurrentBackupRepos,
+		"concurrent-backup-repos",
+		c.ConcurrentBackupRepos,
+		"Number of BackupRepositories to reconcile concurrently. The reconciler waits for each maintenance job to complete, so with one worker a long maintenance delays the initialization of new repositories. Default is one. Optional.",
 	)
 }

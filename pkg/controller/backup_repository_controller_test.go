@@ -1946,3 +1946,10 @@ func getMaintenanceDurationCount(t *testing.T, m *metrics.ServerMetrics, repoNam
 	}
 	return 0
 }
+
+func TestBackupRepoReconcilerWithConcurrency(t *testing.T) {
+	r := mockBackupRepoReconciler(t, "", nil, nil)
+	assert.Equal(t, 1, r.concurrentRepos)
+	assert.Equal(t, 4, r.WithConcurrency(4).concurrentRepos)
+	assert.Equal(t, 4, r.WithConcurrency(0).concurrentRepos)
+}
