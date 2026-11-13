@@ -49,6 +49,25 @@ const (
 	volumeSnapshotContentProtectFinalizer = "velero.io/volume-snapshot-content-protect-finalizer"
 )
 
+// The early frequent polling phase of WaitUntilVSCHandleIsReady. Variables so
+// that tests can shorten them.
+var (
+	earlyPollInterval = 1 * time.Second
+	earlyPollTimeout  = 10 * time.Second
+)
+
+// isPollDeadlineError reports whether err only says that a poll ran out of
+// time: the context is done, or the client-go rate limiter refused to wait
+// past the context deadline ("rate: Wait(n=1) would exceed context
+// deadline"). The limiter returns that error before the deadline passes, so
+// wait.Interrupted does not recognize it.
+func isPollDeadlineError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	return strings.Contains(err.Error(), "would exceed context deadline")
+}
+
 // WaitVolumeSnapshotReady waits a VS to become ready to use until the timeout reaches
 func WaitVolumeSnapshotReady(
 	ctx context.Context,
@@ -612,6 +631,13 @@ func WaitUntilVSCHandleIsReady(
 			crclient.ObjectKeyFromObject(volSnap),
 			vs,
 		); err != nil {
+			// Out of time for this poll: let the poll end as a timeout, so
+			// the early phase falls back to the slow one and the final
+			// timeout reports the VolumeSnapshotContent error.
+			if isPollDeadlineError(ctx, err) {
+				log.Debugf("Getting volumesnapshot %s/%s ran out of poll time: %v", volSnap.Namespace, volSnap.Name, err)
+				return false, nil
+			}
 			return false,
 				errors.Wrapf(
 					err,
@@ -633,6 +659,10 @@ func WaitUntilVSCHandleIsReady(
 			},
 			vsc,
 		); err != nil {
+			if isPollDeadlineError(ctx, err) {
+				log.Debugf("Getting VolumeSnapshotContent %s ran out of poll time: %v", *vs.Status.BoundVolumeSnapshotContentName, err)
+				return false, nil
+			}
 			return false,
 				errors.Wrapf(
 					err,
@@ -670,12 +700,11 @@ func WaitUntilVSCHandleIsReady(
 		// Microsoft VSS backups have a hard-coded unfreeze call after 10 seconds,
 		// so we need to minimize waiting time during the first 10 seconds.
 		// First poll with a short interval and timeout.
-		interval = 1 * time.Second
-		timeout := 10 * time.Second
+		interval = earlyPollInterval
 		err = wait.PollUntilContextTimeout(
 			context.Background(),
 			interval,
-			timeout,
+			earlyPollTimeout,
 			true,
 			pollFunc,
 		)
